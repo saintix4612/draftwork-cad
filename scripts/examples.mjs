@@ -1,0 +1,12 @@
+import {mkdirSync,writeFileSync} from 'node:fs';
+import {initKernel} from '../src/kernel.js';
+import {createFeature,featureDefinitions} from '../src/features.js';
+import {makeObject,documentFor,validateDocument} from '../src/model.js';
+import {jointBase} from '../src/assembly.js';
+await initKernel();
+mkdirSync('dist/examples',{recursive:true});
+const save=(name,doc)=>writeFileSync(`dist/examples/${name}.draftwork`,JSON.stringify(validateDocument(doc),null,2));
+const parts=Object.entries(featureDefinitions).map(([kind,definition],i)=>{const o=createFeature({kind,params:definition.fields});o.x=(i%3-1)*130;o.y=(1-Math.floor(i/3))*120;o.z=0;o.color=['#6d9ea8','#d2ac80','#a9bac2'][i%3];return o;});
+const gallery=documentFor('Student feature gallery',parts);gallery.sheet={author:'',number:'ST-001',revision:'A',material:'Study models',notes:'Seven editable feature generators. Select a part and open Model features.'};save('Student-feature-gallery',gallery);
+const base=makeObject('box',{name:'Fixed base',w:80,d:50,h:8,color:'#a9bac2'}),arm=makeObject('box',{name:'Revolute arm',x:30,z:12,w:60,d:12,h:8,color:'#6d9ea8'}),assembly=documentFor('Revolute joint exercise',[base,arm]);assembly.joints=[{id:crypto.randomUUID(),parent:base.id,child:arm.id,type:'revolute',axis:'z',min:-90,max:90,value:0,base:jointBase(base,arm)}];save('Revolute-joint-exercise',assembly);
+console.log('Packaged two editable example drawings.');

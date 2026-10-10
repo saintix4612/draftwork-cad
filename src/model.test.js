@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {makeObject,validateDocument,documentFor,History,footprint,exportDXF,exportSVG,demo} from './model.js';
+test('saved drawings round trip without losing precision or object types',()=>{const doc=demo();doc.objects[0].x=12.345678;assert.deepEqual(validateDocument(JSON.parse(JSON.stringify(doc))),doc);});
+test('loading refuses malformed, non-finite and duplicate objects',()=>{for(const change of [{w:-1},{x:Infinity},{type:'unknown'},{color:'url(javascript:x)'},{r:0},{id:'" onclick="alert(1)'}]){assert.throws(()=>validateDocument(documentFor('test',[makeObject('box',change)])));}const o=makeObject('box');assert.throws(()=>validateDocument(documentFor('test',[o,o])));});
+test('signed line deltas are allowed while solid dimensions remain positive',()=>{assert.equal(validateDocument(documentFor('line',[makeObject('line',{w:-10,d:-20})])).objects[0].w,-10);});
+test('undo/redo isolates objects and truncates abandoned redo branches',()=>{const h=new History({x:0});h.push({x:1});h.push({x:2});assert.deepEqual(h.undo(),{x:1});assert.deepEqual(h.redo(),{x:2});h.undo();h.push({x:7});assert.deepEqual(h.redo(),{x:7});const o=h.undo();o.x=999;assert.deepEqual(h.redo(),{x:7});});
+test('rotated footprint preserves placement and size',()=>{const points=footprint(makeObject('rectangle',{x:10,y:20,w:4,d:2,rotation:90}));assert.ok(Math.abs(points[0][0]-11)<1e-10);assert.ok(Math.abs(points[0][1]-18)<1e-10);});
+test('DXF exports real circles and mm units, excludes hidden objects',()=>{const s=exportDXF([makeObject('circle',{x:12,y:34,r:6}),makeObject('box',{visible:false})]);assert.match(s,/\$INSUNITS\n70\n4/);assert.match(s,/CIRCLE\n8\n0\n10\n12\n20\n34/);assert.doesNotMatch(s,/\nLINE\n/);});
+test('SVG top view has correct physical extent and flips Y',()=>{const s=exportSVG([makeObject('rectangle',{w:100,d:50})]);assert.match(s,/width="120mm" height="70mm"/);assert.match(s,/-50,25/);assert.doesNotMatch(s,/NaN|Infinity/);assert.doesNotMatch(exportSVG([]),/NaN|Infinity/);});

@@ -1,0 +1,10 @@
+import {readFileSync,writeFileSync,mkdirSync,copyFileSync} from 'node:fs';
+const html=readFileSync('dist/index.html','utf8');
+let standalone=html.replace(/<script[^>]*src="([^"]+)"[^>]*><\/script>/g,(_,p)=>`<script type="module">${readFileSync('dist/'+p.replace(/^\.\//,''),'utf8').replace(/<\/script/gi,'<\\/script')}</script>`).replace(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/g,(_,p)=>`<style>${readFileSync('dist/'+p.replace(/^\.\//,''),'utf8')}</style>`);
+const licenses={Draftwork:readFileSync('LICENSE','utf8'),ThreeJS:readFileSync('node_modules/three/LICENSE','utf8'),Manifold:readFileSync('node_modules/manifold-3d/LICENSE','utf8')};
+standalone=standalone.replace('</body>',`<script type="application/json" id="open-source-licenses">${JSON.stringify(licenses).replace(/</g,'\\u003c')}</script></body>`);
+writeFileSync('dist/Draftwork-CAD.html',standalone);
+mkdirSync('dist/licenses',{recursive:true});
+for(const name of ['three','manifold-3d'])copyFileSync(`node_modules/${name}/LICENSE`,`dist/licenses/${name}.txt`);
+copyFileSync('LICENSE','dist/LICENSE');
+console.log('Standalone file: dist/Draftwork-CAD.html');

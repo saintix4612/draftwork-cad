@@ -1,0 +1,72 @@
+{
+  "format": "draftwork",
+  "version": 2,
+  "units": "mm",
+  "name": "Revolute joint exercise",
+  "objects": [
+    {
+      "id": "e548bc08-25c2-4a57-a979-3ac9d975383d",
+      "type": "box",
+      "name": "Fixed base",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 80,
+      "d": 50,
+      "h": 8,
+      "r": 25,
+      "rotation": 0,
+      "rx": 0,
+      "ry": 0,
+      "color": "#a9bac2",
+      "visible": true
+    },
+    {
+      "id": "36e7a2ad-1d78-4004-a33c-4a80fbdc590b",
+      "type": "box",
+      "name": "Revolute arm",
+      "x": 30,
+      "y": 0,
+      "z": 12,
+      "w": 60,
+      "d": 12,
+      "h": 8,
+      "r": 25,
+      "rotation": 0,
+      "rx": 0,
+      "ry": 0,
+      "color": "#6d9ea8",
+      "visible": true
+    }
+  ],
+  "joints": [
+    {
+      "id": "d527a967-e972-4bea-9033-1f33bcd9e7a2",
+      "type": "revolute",
+      "axis": "z",
+      "parent": "e548bc08-25c2-4a57-a979-3ac9d975383d",
+      "child": "36e7a2ad-1d78-4004-a33c-4a80fbdc590b",
+      "min": -90,
+      "max": 90,
+      "value": 0,
+      "base": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        30,
+        0,
+        12,
+        1
+      ]
+    }
+  ]
+}
