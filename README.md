@@ -2,20 +2,19 @@
 
 **Download and open — no installation or unzipping:**
 
-- [Windows download](https://github.com/saintix4612/draftwork-cad/releases/download/v0.8-mobile/Step-Work-Windows.html)
-- [Mac download](https://github.com/saintix4612/draftwork-cad/releases/download/v0.8-mobile/Step-Work-Mac.html)
-- [Release notes and editable source](https://github.com/saintix4612/draftwork-cad/releases/tag/v0.8-mobile)
+- [Windows download](https://github.com/saintix4612/step-work/releases/download/v0.8-mobile/Step-Work-Windows.html)
+- [Mac download](https://github.com/saintix4612/step-work/releases/download/v0.8-mobile/Step-Work-Mac.html)
+- [Release notes and editable source](https://github.com/saintix4612/step-work/releases/tag/v0.8-mobile)
 
 Save the HTML file, then open it in Chrome or Edge. Both downloads contain the same portable app.
 
-An MIT-licensed browser CAD workspace for engineering students: measured sketches,
-simple solid modeling, assembly studies and engineering calculations. Built for
-saintix4612 with assistance from OpenAI Codex. Independent of Autodesk/AutoCAD.
+Step Work is an open-source, MIT-licensed CAD and engineering analysis workspace.
+It combines dimensioned 2D sketches, editable 3D solids, assembly motion,
+engineering drawings, and structural, thermal and aerodynamic analysis in a
+portable browser application. Built for saintix4612 with assistance from
+OpenAI Codex.
 
-Previously named Draftwork CAD. Existing drawings remain supported.
-
-Step Work builds solids directly from sketches and includes a first educational
-solid simulation workflow.
+Previously named Draftwork CAD; existing drawing files remain compatible.
 
 ## New in 0.8
 
@@ -147,10 +146,10 @@ use SVG/PDF sheets for dimensions and annotations.
 
 ## Scope and limits
 
-This is an early, mesh-based study application, not a complete professional CAD
-or simulation package.
+Step Work uses a mesh-based geometry engine and bounded engineering models.
+The limits below define where its results require another tool or independent review.
 
-- Constraints cover simple XY sketches, up to 80 relations / 180 variables.
+- Constraints cover XY lines, circles and rectangles, up to 80 relations / 180 variables.
   Line–circle tangency uses the infinite line; symmetry reflects two lines or
   circles across global X/Y. Remaining freedoms use a local numerical rank
   estimate, which can be misleading at singular geometries.
@@ -158,7 +157,7 @@ or simulation package.
   stay independent. Linked operations are capped at 80 operations / 80 dependency
   levels. Detach a linked result before making it a moving joint child.
 - Rounded/chamfered features are dedicated generators, not arbitrary mesh-edge
-  fillets. Lofts use two rectangular profiles; sweeps use circular tube arcs.
+  fillets. Lofts connect two rectangular profiles; sweeps follow circular tube arcs.
   Threads have no standardized fit allowance. Gears have approximate root relief.
   Sheet metal is limited to one 90° bend; there is no general unfolding solver.
 - Boolean results keep cached meshes and editable input references. Hole centers
@@ -170,7 +169,7 @@ or simulation package.
   dependent cuts; live motion preview is disabled when linked cuts exist.
   Interference checks cover
   up to 40 visible bodies, detect overlapping volume and exclude mere touching.
-- The solid study is an educational small-strain, linear-elastic static estimate.
+- The 3D structural study uses a small-strain, linear-elastic static model.
   It uses a voxelized approximation and fully integrated eight-node brick cells;
   curved surfaces and small details become stair-stepped or may not resolve.
   The app reports voxel-volume error but that does not prove local geometry or
@@ -187,7 +186,7 @@ or simulation package.
   outputs are for learning and comparison, not aircraft design or safety.
 - Plane cuts use a world-space plane. Hollowing is limited to boxes, cylinders
   and straight polygon extrusions with a constant wall and bottom thickness.
-  Revolve and taper tools use simple sketch profiles, not arbitrary imported
+  Revolve and taper tools use defined sketch profiles, not arbitrary imported
   solid features. These tools do not provide a manufacturing-ready feature tree.
 - Analysis does not mesh arbitrary CAD solids. Beam/truss models are linear and
   exclude buckling, joints, stress concentrations and nonlinear material response.
