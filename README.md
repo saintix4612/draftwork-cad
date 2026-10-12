@@ -1,14 +1,63 @@
-# Draftwork CAD 0.3
+# Step Work 0.8
+
+**Download and open — no installation or unzipping:**
+
+- [Windows download](https://github.com/saintix4612/draftwork-cad/releases/download/v0.8-mobile/Step-Work-Windows.html)
+- [Mac download](https://github.com/saintix4612/draftwork-cad/releases/download/v0.8-mobile/Step-Work-Mac.html)
+- [Release notes and editable source](https://github.com/saintix4612/draftwork-cad/releases/tag/v0.8-mobile)
+
+Save the HTML file, then open it in Chrome or Edge. Both downloads contain the same portable app.
 
 An MIT-licensed browser CAD workspace for engineering students: measured sketches,
 simple solid modeling, assembly studies and engineering calculations. Built for
 saintix4612 with assistance from OpenAI Codex. Independent of Autodesk/AutoCAD.
 
-![Seven editable engineering features](docs/feature-gallery.png)
+Previously named Draftwork CAD. Existing drawings remain supported.
+
+Step Work builds solids directly from sketches and includes a first educational
+solid simulation workflow.
+
+## New in 0.8
+
+- Line–circle tangency, global X/Y symmetry for lines/circles, and a local
+  remaining-geometric-freedom count in Sketch constraints.
+- A coherent aluminum thermal example (205 W/m·K, 2700 kg/m³, 900 J/kg·K),
+  labeled time curves and a **Check finer resolution** button. The comparison
+  is included when you save the calculation report after running it.
+- Aerodynamic angle sweep from −12° to +12°, stricter airfoil-code validation,
+  and a warning for low aspect ratio. This is still a linear lift/induced-drag
+  model; it does not calculate stall or airflow.
+- Eleven additional tests covering thermal analytical references/refinement,
+  aerodynamic reference values/scaling, sketch relations and saved drawings.
+
+To try the heat example: **Analysis lab → Transient heat conduction → Calculate**.
+Choose **Check finer resolution** to compare final temperatures, energy and heat
+flow with a finer calculation. This comparison is not a guaranteed error bound.
+
+## Mobile layout and Windows sharing
+
+The mobile update adapts the workspace to narrow screens: Canvas, Objects,
+Properties and Tools appear in the bottom navigation. Sketch tools scroll across
+one row; Cancel, Finish polygon and zoom controls do not require a keyboard.
+In Select mode, one finger orbits the 3D view and pans a 2D view; two fingers use
+OrbitControls for zoom/pan. Two-finger gestures do not place sketch points.
+
+`Step-Work-Phone-Preview.html` contains the actual app in a resizable phone frame
+(390 × 780, 360 × 740 or landscape). Its autosave keys are separate. It previews
+layout and interaction; it does not emulate phone hardware or Safari.
+
+Share `Step-Work-Windows.html` as a single file. The recipient saves it and opens
+it in Edge or Chrome, with no archive, terminal or developer tools. This is a
+portable browser app, not a Windows executable or installer. The same app also
+runs on Mac. Drawings are saved separately using Save file.
+
+The mobile build and 66 numerical/model tests pass. Physical phone testing,
+Windows browser testing and a visual walkthrough remain pending. iOS opening
+of local HTML varies by app; this release does not add mobile hosting or a PWA.
 
 ## Open the app
 
-Open `Draftwork-CAD.html` from a packaged build in a modern desktop browser.
+Open `Step-Work.html` from a packaged build in a modern desktop browser.
 It includes its 3D engine and needs no developer tools, account, or server.
 Google Fonts are optional; system fonts work offline. WebGL and WebAssembly
 must be available. Download drawing files as backups of browser autosave.
@@ -23,7 +72,7 @@ npm run build
 ```
 
 The build produces `dist/index.html` for static hosting and
-`dist/Draftwork-CAD.html` as a standalone file. Source licenses are embedded in
+`dist/Step-Work.html` as a standalone file. Source licenses are embedded in
 the standalone file and also included under `dist/licenses/`.
 
 ## Student workflow
@@ -36,9 +85,15 @@ the standalone file and also included under `dist/licenses/`.
    equal, concentric, coincident endpoints, center/start distance, or fixed.
    Edit driving dimensions in the relation list. Conflicting edits are rejected.
    The built-in exercise demonstrates equal parallel lines and concentric circles.
-3. **Model.** Extrude rectangles, circles or polygons; add boxes/cylinders;
+3. **Model.** Extrude rectangles, circles or polygons into linked solids. Edit the
+   source sketch to rebuild the profile and placement; height stays independent.
+   Use **Edit source sketch** or **Detach extrusion** in Properties. Duplicates
+   and patterns are independent copies. Add boxes/cylinders;
    union, subtract or intersect bodies; drill a world-Z through-hole; repeat
-   objects in a linear pattern. Edit XYZ position and XYZ rotation.
+   objects in a linear pattern. Open **Model history** to edit a hole diameter,
+   world X/Y, or boolean operation; navigate inputs or detach a result.
+   Changes to source sketches, solid dimensions, and generated feature parameters
+   rebuild the downstream results. Edit XYZ position and XYZ rotation.
 4. **Use features.** Model features creates rounded plates, chamfered blocks,
    rectangular lofts, swept tube elbows, involute spur gears, geometric threaded
    rods and a single-bend sheet. Reopen the panel on a generated part to edit
@@ -48,12 +103,24 @@ the standalone file and also included under `dist/licenses/`.
    Use a slider to save a new pose, preview motion, check overlapping volume,
    or inspect an exploded view. Closing the panel resets display-only previews.
 6. **Study.** Analysis lab has a 20-element Euler–Bernoulli beam model, a 2D
-   pin-jointed truss stiffness solver and 1D steady heat conduction. Assumptions,
-   units, numerical results and downloadable JSON reports are provided.
+   pin-jointed truss stiffness solver, steady and transient 1D heat conduction,
+   and a simplified finite-wing airfoil estimate. Each study shows its
+   assumptions and provides a downloadable JSON report.
 7. **Draw and export.** Place linear dimension annotations with D. In Sheet setup,
    edit annotation offsets/tolerances, the title block, circular center marks,
    sampled hidden edges and a horizontal section cut. Save an A4 SVG sheet or
    print to PDF at actual size. Export STL/OBJ solids and SVG/DXF top outlines.
+8. **Use 3D tools.** Select a solid and choose **3D tools** to cut it with a
+   plane, hollow a supported straight extrusion, revolve a sketch profile, or
+   taper/twist an extrusion. Each result stays linked to its source and rebuilds
+   when its inputs change. Plane picking reads a mesh facet, so it is an
+   approximate picked face rather than a persistent CAD face reference.
+9. **Run a solid study.** Select one solid and choose **3D simulation**. The app
+   samples it into a voxel mesh, applies a fixed bounding side and a total force
+   on another side, then estimates linear elastic displacement and von Mises
+   stress. Change material values, support/load faces, mesh resolution, and
+   visualization. A JSON report records inputs, mesh resolution/error, results,
+   and assumptions.
 
 ## Controls and files
 
@@ -67,9 +134,10 @@ pans. F fits the drawing. V/L/R/C/P/B/Y/M/D select tools; Esc cancels drawing;
 Delete removes selection; Cmd/Ctrl Z undoes; Cmd/Ctrl Shift Z redoes;
 Cmd/Ctrl D duplicates; Cmd/Ctrl S downloads a drawing.
 
-`.draftwork` files include objects, feature parameters, constraints, joints and
-sheet settings. New files use format version 2 so older editors do not silently
-discard these features. Existing version-1 drawings remain readable. Open also accepts
+`.stepwork` files include objects, feature parameters, constraints, joints and
+sheet settings. New files use format version 5 so older editors do not silently
+discard these features. Existing Draftwork version-1 through version-4 drawings remain readable.
+The internal `draftwork` format identifier is retained for compatibility. Open also accepts
 ASCII DXF LINE, CIRCLE and straight LWPOLYLINE entities in supported units.
 Unsupported DXF entities are reported explicitly; unitless DXF is treated as mm.
 
@@ -83,17 +151,44 @@ This is an early, mesh-based study application, not a complete professional CAD
 or simulation package.
 
 - Constraints cover simple XY sketches, up to 80 relations / 180 variables.
-  There is no degrees-of-freedom report, tangent/symmetry constraint, or automatic
-  feature dependency tree. A constrained sketch's extrusion is an independent copy.
+  Line–circle tangency uses the infinite line; symmetry reflects two lines or
+  circles across global X/Y. Remaining freedoms use a local numerical rank
+  estimate, which can be misleading at singular geometries.
+  New extrusions, holes and booleans retain their inputs. Older unlinked results
+  stay independent. Linked operations are capped at 80 operations / 80 dependency
+  levels. Detach a linked result before making it a moving joint child.
 - Rounded/chamfered features are dedicated generators, not arbitrary mesh-edge
   fillets. Lofts use two rectangular profiles; sweeps use circular tube arcs.
   Threads have no standardized fit allowance. Gears have approximate root relief.
   Sheet metal is limited to one 90° bend; there is no general unfolding solver.
-- Boolean results are saved meshes. Generated feature parameters remain editable
-  until the feature is converted through another modeling operation.
+- Boolean results keep cached meshes and editable input references. Hole centers
+  remain fixed in world X/Y and drill along world Z. Missing inputs, dependency
+  loops, empty results and missed holes reject the entire edit. Patterns remain
+  independent copies. Suppression, reordering and replacing inputs are not yet supported.
 - Assemblies are acyclic single-parent joint chains, up to 60 joints. Motion is
-  kinematic, not a gravity/contact/dynamics simulation. Interference checks cover
+  kinematic, not a gravity/contact/dynamics simulation. Saved joint poses rebuild
+  dependent cuts; live motion preview is disabled when linked cuts exist.
+  Interference checks cover
   up to 40 visible bodies, detect overlapping volume and exclude mere touching.
+- The solid study is an educational small-strain, linear-elastic static estimate.
+  It uses a voxelized approximation and fully integrated eight-node brick cells;
+  curved surfaces and small details become stair-stepped or may not resolve.
+  The app reports voxel-volume error but that does not prove local geometry or
+  stress accuracy. Models are limited to 3,000 filled cells and 12,000 solver
+  nodes. Supports clamp all translations on one bounding plane; force is spread
+  over another plane. The solver omits contact, buckling, plasticity, fatigue,
+  thermal loads and stress concentrations. Results are not certified for design
+  or safety decisions. Use mesh refinement and an established solver for real
+  engineering decisions.
+- Transient heat conduction is one-dimensional with fixed end temperatures,
+  constant properties and insulated sides. The airfoil tool uses thin-airfoil
+  lift theory with a simple finite-span correction and estimates induced drag
+  only. It does not predict profile drag, stall, turbulence or a flow field; its
+  outputs are for learning and comparison, not aircraft design or safety.
+- Plane cuts use a world-space plane. Hollowing is limited to boxes, cylinders
+  and straight polygon extrusions with a constant wall and bottom thickness.
+  Revolve and taper tools use simple sketch profiles, not arbitrary imported
+  solid features. These tools do not provide a manufacturing-ready feature tree.
 - Analysis does not mesh arbitrary CAD solids. Beam/truss models are linear and
   exclude buckling, joints, stress concentrations and nonlinear material response.
   Yield safety factors cover only the displayed idealized stress. Thermal analysis
@@ -127,4 +222,4 @@ verify generated changes. Keep educational assumptions visible in analysis tools
 - [Vite](https://vite.dev/) — MIT; development and build tooling.
 - DM Sans and IBM Plex Mono — SIL Open Font License; optional Google Fonts.
 
-Draftwork source is MIT licensed. Dependencies retain their authors' licenses.
+Step Work source is MIT licensed. Dependencies retain their authors' licenses.

@@ -1,12 +1,12 @@
 {
-  "name": "draftwork-cad",
-  "version": "0.3.0",
+  "name": "step-work",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "license": "MIT",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build && node scripts/package.mjs && node scripts/examples.mjs",
+    "build": "vite build && node scripts/package.mjs && node scripts/examples.mjs && node scripts/mobile-preview.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test src/*.test.js"
   },
