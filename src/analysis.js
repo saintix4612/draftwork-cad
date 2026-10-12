@@ -38,3 +38,61 @@ export function trussAnalysis(p){
   return {members:results,displacements:p.nodes.map((_,i)=>[u[2*i],u[2*i+1]]),stress,deflection,safetyFactor:stress>0?p.yieldStrength/stress:null,reactions:fixed.map(i=>({dof:i,value:K[i].reduce((s,v,j)=>s+v*u[j],0)-F[i]}))};
 }
 export function thermalAnalysis(p){positive(p,['length','area','conductivity']);if(!Number.isFinite(p.hot)||!Number.isFinite(p.cold)||p.hot< -273.15||p.cold< -273.15)throw Error('Temperatures must be above absolute zero.');const length=p.length/1000,area=p.area/1e6,heatRate=p.conductivity*area*(p.hot-p.cold)/length,gradient=(p.cold-p.hot)/length;if(!Number.isFinite(heatRate)||!Number.isFinite(gradient))throw Error('The thermal calculation overflowed. Check input units.');return {heatRate,gradient,temperatures:Array.from({length:11},(_,i)=>({x:p.length*i/10,T:p.hot+(p.cold-p.hot)*i/10}))};}
+
+// Implicit one-dimensional transient conduction with fixed end temperatures.
+// Length: mm, area: mm², time: s, k: W/(m K), density: kg/m³, cp: J/(kg K).
+export function transientThermalAnalysis(p){
+  positive(p,['length','area','conductivity','density','specificHeat','duration']);
+  const nodes=p.nodes??21,steps=p.steps??300;
+  if(!Number.isInteger(nodes)||nodes<5||nodes>81||!Number.isInteger(steps)||steps<1||steps>5000)throw Error('Use 5–81 nodes and 1–5000 time steps.');
+  if(![p.hot,p.cold,p.initial].every(Number.isFinite)||[p.hot,p.cold,p.initial].some(t=>t< -273.15))throw Error('Temperatures must be above absolute zero.');
+  const L=p.length/1000,A=p.area/1e6,dx=L/(nodes-1),dt=p.duration/steps,alpha=p.conductivity/(p.density*p.specificHeat),r=alpha*dt/(dx*dx),m=nodes-2;
+  if(!Number.isFinite(r)||!Number.isFinite(alpha)||alpha<=0)throw Error('Thermal properties exceed the supported range.');
+  let T=Array(nodes).fill(p.initial);T[0]=p.hot;T[nodes-1]=p.cold;
+  const snapshots=[{time:0,temperatures:T.slice()}],marks=new Set([Math.ceil(steps*.25),Math.ceil(steps*.5),Math.ceil(steps*.75),steps]);
+  for(let step=1;step<=steps;step++){
+    const lower=Array(m).fill(-r),diag=Array(m).fill(1+2*r),upper=Array(m).fill(-r),rhs=T.slice(1,-1);
+    rhs[0]+=r*p.hot;rhs[m-1]+=r*p.cold;
+    for(let i=1;i<m;i++){const q=lower[i]/diag[i-1];diag[i]-=q*upper[i-1];rhs[i]-=q*rhs[i-1];}
+    const next=Array(nodes).fill(0);next[0]=p.hot;next[nodes-1]=p.cold;next[nodes-2]=rhs[m-1]/diag[m-1];
+    for(let i=m-2;i>=0;i--)next[i+1]=(rhs[i]-upper[i]*next[i+2])/diag[i];
+    T=next;
+    if(marks.has(step))snapshots.push({time:step*dt,temperatures:T.slice()});
+  }
+  const heatCapacity=p.density*p.specificHeat*A*dx,energy=heatCapacity*(T.slice(1,-1).reduce((sum,v)=>sum+v,0)+(T[0]+T.at(-1))/2-(nodes-1)*p.initial);
+  const heatIn=-p.conductivity*A*(T[1]-T[0])/dx,heatOut=-p.conductivity*A*(T.at(-1)-T.at(-2))/dx;
+  if(!Number.isFinite(energy+heatIn+heatOut)||T.some(v=>!Number.isFinite(v)))throw Error('The transient thermal calculation overflowed.');
+  return {snapshots:snapshots.map(s=>({time:s.time,temperatures:s.temperatures.map((T,i)=>({x:p.length*i/(nodes-1),T}))})),final:T,
+    nodes,steps,dt,FourierNumber:r,thermalDiffusivity:alpha,storedEnergy:energy,heatRateIn:heatIn,heatRateOut:heatOut};
+}
+
+// Educational finite-wing estimate using thin-airfoil theory and a simple
+// aspect-ratio lift-slope correction; it is not a CFD or viscous-drag model.
+export function aeroAnalysis(p){
+  positive(p,['chord','span','speed','density','viscosity']);
+  if(!Number.isFinite(p.angle)||Math.abs(p.angle)>45)throw Error('Angle of attack must be between −45° and 45°.');
+  const raw=String(p.airfoil??'0012').trim();
+  const code=/^\d{1,4}$/.test(raw)?raw.padStart(4,'0'):raw;
+  if(!/^\d{1,4}$/.test(raw))throw Error('Enter a four-digit NACA airfoil code such as 0012 or 2412.');
+  const m=Number(code[0])/100,camberPosition=Number(code[1])/10,thickness=Number(code.slice(2))/100;
+  if(thickness===0||(m>0&&(camberPosition===0||camberPosition>=1)))throw Error('Use a nonzero thickness and a valid camber position for this NACA 4-digit profile.');
+  let integral=0;const n=400,h=Math.PI/n;
+  const slope=theta=>{if(!m)return 0;const x=(1-Math.cos(theta))/2;return x<camberPosition?2*m/(camberPosition**2)*(camberPosition-x):2*m/((1-camberPosition)**2)*(camberPosition-x);};
+  for(let i=0;i<=n;i++){const theta=i*h;integral+=(i===0||i===n?1:i%2?4:2)*slope(theta)*(1-Math.cos(theta));}
+  const zeroLiftAngle=integral*h/(3*Math.PI),aspectRatio=p.span/p.chord,alpha=p.angle*Math.PI/180;
+  const liftSlope=2*Math.PI*aspectRatio/(aspectRatio+2),CL=liftSlope*(alpha-zeroLiftAngle),CDi=CL*CL/(Math.PI*.8*aspectRatio);
+  const q=.5*p.density*p.speed**2,area=p.chord/1000*p.span/1000,lift=q*area*CL,inducedDrag=q*area*CDi,reynolds=p.density*p.speed*(p.chord/1000)/p.viscosity,mach=p.speed/343;
+  if(![CL,CDi,lift,inducedDrag,reynolds,mach].every(Number.isFinite))throw Error('The aerodynamic calculation overflowed. Check inputs and units.');
+  const warnings=[];if(aspectRatio<4)warnings.push('Low aspect ratio: the simple finite-wing correction may be inaccurate.');if(Math.abs(p.angle)>12)warnings.push('Angle is beyond the usual attached-flow range; the linear model is unreliable and does not predict stall.');if(mach>.3)warnings.push('Compressibility may matter at this speed; this model assumes incompressible flow.');
+  return {airfoil:code,camber:m,thickness,aspectRatio,zeroLiftAngle:zeroLiftAngle*180/Math.PI,liftSlope,CL,CDi,lift,inducedDrag,reynolds,mach,warnings,
+    assumptions:'Thin-airfoil lift with a simple finite-span correction; induced drag only. No viscous/profile drag, stall, turbulence, compressibility correction, propeller effects or 3D flow field.'};
+}
+
+// Compare at common spatial locations; refinement remains within solver limits.
+export function thermalConvergence(p){
+  const coarse=transientThermalAnalysis(p),nodes=Math.min(81,2*(coarse.nodes-1)+1),steps=Math.min(5000,2*coarse.steps);
+  if(nodes===coarse.nodes&&steps===coarse.steps)throw Error('Already at maximum resolution. Start with fewer than 81 nodes or 5000 steps.');
+  const refined=transientThermalAnalysis({...p,nodes,steps});
+  const differences=coarse.final.map((T,i)=>{const x=i/(coarse.nodes-1)*(nodes-1),j=Math.min(nodes-2,Math.floor(x)),f=x-j;return Math.abs(T-((1-f)*refined.final[j]+f*refined.final[j+1]));});
+  return {coarse:{nodes:coarse.nodes,steps:coarse.steps},refined:{nodes,steps},maxTemperatureDifference:Math.max(...differences),storedEnergyDifference:Math.abs(coarse.storedEnergy-refined.storedEnergy),heatRateInDifference:Math.abs(coarse.heatRateIn-refined.heatRateIn),note:'Difference between two resolutions, not a certified error bound. Repeat refinement and consider spatial and temporal errors separately.'};
+}

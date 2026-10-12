@@ -1,3 +1,5 @@
+import {validateRecipe,featureOrder} from './model-history.js';
+import {rebuildExtrusions} from './linked-extrusions.js';
 import {validatePolygon} from './engineering.js';
 import {validateConstraints} from './constraints.js';
 import {validateFeature} from './features.js';
@@ -6,7 +8,7 @@ export const TYPES = ['box', 'cylinder', 'rectangle', 'circle', 'line', 'polygon
 export const isSolid = o => ['box', 'cylinder', 'extrusion', 'mesh'].includes(o.type);
 export const makeObject = (type, props = {}) => ({id:crypto.randomUUID(), type, name:type[0].toUpperCase()+type.slice(1), x:0,y:0,z:0,w:80,d:60,h:40,r:25,rotation:0,rx:0,ry:0,color:'#7cb6bf',visible:true, ...props});
 export function validateDocument(input) {
-  if (!input || input.format !== 'draftwork' || ![1,2].includes(input.version) || !Array.isArray(input.objects) || input.objects.length > 2000) throw Error('This is not a supported Draftwork drawing.');
+  if (!input || input.format !== 'draftwork' || ![1,2,3,4,5].includes(input.version) || !Array.isArray(input.objects) || input.objects.length > 2000) throw Error('This is not a supported Step Work drawing.');
   if(input.units && input.units!=='mm')throw Error('Drawing storage units must be millimeters.');
   const ids = new Set();let totalIndices=0;
   const objects = input.objects.map(o => {
@@ -16,6 +18,8 @@ export function validateDocument(input) {
     if (o.h <= 0 || o.r <= 0 || (!['line','dimension'].includes(o.type) && (o.w <= 0 || o.d <= 0))) throw Error('Object sizes must be positive.');
     if (!/^#[\da-f]{6}$/i.test(o.color)) throw Error('Invalid object color.');
     const extra={rx:o.rx??0,ry:o.ry??0};
+    if(o.sketchId!==undefined){if(typeof o.sketchId!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(o.sketchId))throw Error('Invalid sketch reference.');extra.sketchId=o.sketchId;}
+    if(o.recipe!==undefined)extra.recipe=validateRecipe(o.recipe);
     if(o.feature)extra.feature=validateFeature(o.feature);
     if(o.type==='dimension'){
       if(o.offset!==undefined){if(!Number.isFinite(o.offset)||Math.abs(o.offset)>1e6)throw Error('Invalid dimension offset.');extra.offset=o.offset;}
@@ -26,14 +30,16 @@ export function validateDocument(input) {
     if(o.type==='mesh'){const m=o.mesh;if(!m||!Array.isArray(m.vertices)||!Array.isArray(m.indices)||!Array.isArray(m.size)||m.size.length!==3||m.size.some(n=>!Number.isFinite(n)||n<=0)||m.vertices.length<12||m.vertices.length%3||m.indices.length<12||m.indices.length%3||m.vertices.some(n=>!Number.isFinite(n)||Math.abs(n)>1e6)||m.indices.some(n=>!Number.isInteger(n)||n<0||n>=m.vertices.length/3))throw Error('Invalid solid mesh.');totalIndices+=m.indices.length;if(totalIndices>600000)throw Error('Drawing exceeds the 200,000 triangle limit.');extra.mesh=structuredClone(m);}
     return {...makeObject(o.type),...extra, ...Object.fromEntries(['id','type','x','y','z','w','d','h','r','rotation','color'].map(k=>[k,o[k]])),name:String(o.name || o.type).slice(0,100),visible:o.visible !== false};
   });
-  const result={format:'draftwork',version:2,units:'mm',name:String(input.name || 'Untitled drawing').slice(0,100),objects};
+  rebuildExtrusions(objects,input.joints||[]);
+  const result={format:'draftwork',version:5,units:'mm',name:String(input.name || 'Untitled drawing').slice(0,100),objects};
   if(input.constraints)result.constraints=validateConstraints(input.constraints,objects);
   if(input.joints)result.joints=validateJoints(input.joints,objects);
+  featureOrder(objects,result.joints||[]);
   if(input.sheet){const s=input.sheet;result.sheet={};for(const k of ['author','number','revision','material','notes'])result.sheet[k]=String(s[k]||'').slice(0,k==='notes'?160:60);if(s.sectionZ!==undefined){if(!Number.isFinite(s.sectionZ)||Math.abs(s.sectionZ)>1e6)throw Error('Invalid section height.');result.sheet.sectionZ=s.sectionZ;}result.sheet.section=!!s.section;result.sheet.centerMarks=s.centerMarks!==false;}
   if(result.sheet)result.sheet.hiddenEdges=!!input.sheet.hiddenEdges;
   return result;
 }
-export const documentFor = (name, objects) => ({format:'draftwork',version:2,units:'mm',name,objects});
+export const documentFor = (name, objects) => ({format:'draftwork',version:5,units:'mm',name,objects});
 export class History {
   constructor(initial) { this.states=[structuredClone(initial)]; this.index=0; }
   push(value) { if(JSON.stringify(value)===JSON.stringify(this.states[this.index]))return; this.states.splice(this.index+1); this.states.push(structuredClone(value)); if(this.states.length>100)this.states.shift(); this.index=this.states.length-1; }

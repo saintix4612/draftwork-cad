@@ -1,5 +1,5 @@
 export const sketchTypes = ['line', 'circle', 'rectangle'];
-export const constraintKinds = ['horizontal', 'vertical', 'length', 'radius', 'width', 'depth', 'parallel', 'perpendicular', 'equal', 'concentric', 'coincident', 'distance', 'fixed'];
+export const constraintKinds = ['horizontal', 'vertical', 'length', 'radius', 'width', 'depth', 'parallel', 'perpendicular', 'equal', 'concentric', 'coincident', 'distance', 'tangent', 'symmetry-x', 'symmetry-y', 'fixed'];
 const fields = o => o.type === 'circle' ? ['x','y','r'] : ['x','y','w','d','rotation'];
 const vector = o => { const a=o.rotation*Math.PI/180; return [o.w*Math.cos(a)-o.d*Math.sin(a),o.w*Math.sin(a)+o.d*Math.cos(a)]; };
 const point = (o,end=0) => { const v=vector(o); return [o.x+(end?v[0]:0),o.y+(end?v[1]:0)]; };
@@ -15,9 +15,11 @@ export function validateConstraints(constraints,objects) {
     if(c.kind==='radius'&&a.type!=='circle')throw Error('Radius needs a circle.');
     if(['width','depth'].includes(c.kind)&&a.type!=='rectangle')throw Error('Width/depth needs a rectangle.');
     const result={id:c.id,kind:c.kind,a:c.a};
-    if(['parallel','perpendicular','equal','concentric','coincident','distance'].includes(c.kind)) {
+    if(['parallel','perpendicular','equal','concentric','coincident','distance','tangent','symmetry-x','symmetry-y'].includes(c.kind)) {
       if(!b||a.id===b.id||!sketchTypes.includes(b.type)||Math.abs(b.z)>1e-8)throw Error('Choose a different XY sketch as the reference.');
       if(['parallel','perpendicular','coincident'].includes(c.kind)&&(a.type!=='line'||b.type!=='line'))throw Error('This relation needs two lines.');
+      if(c.kind.startsWith('symmetry-')&&!(a.type===b.type&&['line','circle'].includes(a.type)))throw Error('Symmetry needs two lines or two circles. The axis is the global X or Y axis.');
+      if(c.kind==='tangent'&&!((a.type==='line'&&b.type==='circle')||(a.type==='circle'&&b.type==='line')))throw Error('Tangency needs one line and one circle (the infinite supporting line is used).');
       if(c.kind==='concentric'&&(a.type!=='circle'||b.type!=='circle'))throw Error('Concentric needs two circles.');
       if(c.kind==='equal'&&!(a.type===b.type&&['line','circle'].includes(a.type)))throw Error('Equal needs two lines or two circles.');
       result.b=c.b;
@@ -39,6 +41,8 @@ function residuals(objects,constraints,drive) {
     if(c.kind==='radius')r.push(a.r-c.value);
     if(c.kind==='width')r.push(a.w-c.value);
     if(c.kind==='depth')r.push(a.d-c.value);
+    if(c.kind.startsWith('symmetry-')){const sx=c.kind==='symmetry-y'?-1:1,sy=c.kind==='symmetry-x'?-1:1;r.push(a.x-sx*b.x,a.y-sy*b.y);if(a.type==='circle')r.push(a.r-b.r);else{const pa=point(a,1),pb=point(b,1);r.push(pa[0]-sx*pb[0],pa[1]-sy*pb[1]);}}
+    if(c.kind==='tangent'){const line=a.type==='line'?a:b,circle=a.type==='circle'?a:b,w=vector(line),length=Math.hypot(...w);r.push(Math.abs(w[0]*(circle.y-line.y)-w[1]*(circle.x-line.x))/Math.max(length,1e-9)-circle.r);}
     if(c.kind==='equal')r.push(size(a)-size(b));
     if(c.kind==='concentric')r.push(a.x-b.x,a.y-b.y);
     if(c.kind==='distance')r.push(Math.hypot(a.x-b.x,a.y-b.y)-c.value);
@@ -79,4 +83,24 @@ export function solveSketch(document,drive=null) {
   }
   if(Math.max(...r.map(Math.abs))>1e-4||objects.some(o=>fields(o).some(k=>!Number.isFinite(o[k])||Math.abs(o[k])>1e6)||(o.type==='circle'&&o.r<=0)||(o.type==='rectangle'&&(o.w<=0||o.d<=0))||(o.type==='line'&&size(o)<1e-6)))throw Error('Conflicting constraints or a degenerate sketch. Remove a relation or edit its driving dimension.');
   return next;
+}
+
+// Local Jacobian rank counts geometric freedoms, excluding the redundant line
+// rotation parameter (its effect is already represented by w and d).
+export function sketchFreedom(document){
+  const objects=structuredClone(document.objects.filter(o=>sketchTypes.includes(o.type)&&Math.abs(o.z)<1e-8));
+  const constraints=validateConstraints(document.constraints||[],document.objects);
+  const variables=objects.flatMap(o=>(o.type==='line'?['x','y','w','d']:fields(o)).map(key=>({o,key})));
+  const base=residuals(objects,constraints),matrix=base.map(()=>[]);
+  variables.forEach(({o,key},j)=>{const old=o[key],h=1e-5*Math.max(1,Math.abs(old));o[key]=old+h;const plus=residuals(objects,constraints);o[key]=old-h;const minus=residuals(objects,constraints);o[key]=old;for(let i=0;i<base.length;i++)matrix[i][j]=(plus[i]-minus[i])/(2*h);});
+  for(const row of matrix){const norm=Math.hypot(...row);if(norm>1e-12)for(let j=0;j<row.length;j++)row[j]/=norm;}
+  let rank=0;
+  for(let col=0;col<variables.length&&rank<matrix.length;col++){
+    let pivot=rank;for(let i=rank+1;i<matrix.length;i++)if(Math.abs(matrix[i][col])>Math.abs(matrix[pivot][col]))pivot=i;
+    if(Math.abs(matrix[pivot][col])<1e-7)continue;
+    [matrix[rank],matrix[pivot]]=[matrix[pivot],matrix[rank]];
+    const scale=matrix[rank][col];for(let j=col;j<variables.length;j++)matrix[rank][j]/=scale;
+    for(let i=rank+1;i<matrix.length;i++){const factor=matrix[i][col];for(let j=col;j<variables.length;j++)matrix[i][j]-=factor*matrix[rank][j];}rank++;
+  }
+  return {remaining:variables.length-rank,variables:variables.length,rank,approximate:true};
 }
